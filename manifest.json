@@ -1,0 +1,23 @@
+{
+	"manifest_version": 2,
+	"name": "Fav Icon Refresher",
+	"short_name": "FavIconRefresher",
+	"description": "Firefox Extension to refresh the FavIcons in your Bookmarks Toolbar.",
+	"homepage_url": "https://github.com/djfdat/favicon-refresher",
+	"version": "1.0.0",
+
+	"permissions": [
+		"webRequest",
+		"bookmarks",
+		"tabs"
+	],
+
+	"browser_action": {
+		"default_title": "Refresh Fav Icons",
+		"default_popup": "popup.html"
+	},
+
+	"background": {
+		"scripts": ["background.js"]
+	}
+}
