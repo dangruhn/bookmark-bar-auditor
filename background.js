@@ -1,14 +1,9 @@
-// Check Content-Type via HEAD request; skip PDFs and images
-async function shouldSkipUrl(url) {
-    try {
-        const res = await fetch(url, { method: 'HEAD' });
-        const ct = res.headers.get('Content-Type') || '';
-        if (ct.includes('application/pdf') || ct.startsWith('image/')) {
-            return true;
-        }
-    } catch (e) {
-        console.warn('HEAD request failed (likely CORS):', url, e);
-        // If HEAD fails (CORS), process as normal
+// Skip PDFs by URL pattern only (no HEAD request)
+function shouldSkipUrl(url) {
+    // Matches .pdf anywhere in the URL, including query params
+    if (/\.pdf(\?|#|$)/i.test(url) || url.toLowerCase().includes('.pdf')) {
+        console.log('Skipping PDF by URL pattern:', url);
+        return true;
     }
     return false;
 }
@@ -19,12 +14,13 @@ const BATCH_DELAY_MS = 1000;
 const TAB_TIMEOUT_MS = 20000;
 
 let currentCountdown = 0;
+let elapsedTimer = null;
 let stats = {
   startTime: null,
   totalTabs: 0,
   tabsProcessed: 0,
   tabsPerSec: 0,
-  remainingTime: '--',
+    elapsedTime: '--', // Will become Elapsed Time
   eta: '--'
 };
 let processingState = {
@@ -53,11 +49,20 @@ function updateCountdown(remaining) {
             const tabsLeftThisRun = (stats.totalTabs - runStartIndex) - processedThisRun;
             const estTimeLeft = tabsLeftThisRun / (stats.tabsPerSec || 1);
       const etaDate = new Date(now + estTimeLeft * 1000);
-      stats.remainingTime = estTimeLeft > 0 ? `${Math.round(estTimeLeft)}s` : '0s';
+    // Calculate elapsed time in HH:MM:SS
+    const elapsedHrs = Math.floor(elapsed / 3600);
+    const elapsedMins = Math.floor((elapsed % 3600) / 60);
+    const elapsedSecs = Math.floor(elapsed % 60);
+    const pad = n => n.toString().padStart(2, '0');
+    stats.elapsedTime = `${pad(elapsedHrs)}:${pad(elapsedMins)}:${pad(elapsedSecs)}`;
       stats.eta = etaDate.toLocaleTimeString();
     }
     browser.browserAction.setBadgeText({ text: remaining > 0 ? String(remaining) : '' });
-    browser.runtime.sendMessage({ type: 'bookmarkCountdown', processed: stats.tabsProcessed, total: stats.totalTabs, stats });
+        browser.runtime.sendMessage({ type: 'bookmarkCountdown', processed: stats.tabsProcessed, total: stats.totalTabs, stats })
+            .catch(e => {
+                if (e && e.message && e.message.includes('Could not establish connection')) return;
+                console.warn('sendMessage error:', e);
+            });
 }
 
 function flattenBookmarks(bookmarkItem, urls = []) {
@@ -91,12 +96,19 @@ async function openTabsInBatches(urls, start = 0) {
     runStartIndex = start;
     stats.tabsProcessed = start; // Displayed "Tabs processed" starts at this index
     stats.tabsPerSec = 0;
-    stats.remainingTime = '--';
+    stats.elapsedTime = '00:00:00';
     stats.eta = '--';
     processingState.paused = false;
     processingState.stopped = false;
+
     processingState.urls = urls;
     processingState.currentIndex = start;
+
+    // Start elapsed time timer
+    if (elapsedTimer) clearInterval(elapsedTimer);
+    elapsedTimer = setInterval(() => {
+        updateCountdown(currentCountdown);
+    }, 1000);
 
     const batchSize = max_tabs; // Use max_tabs from UI/constant
     let current = start;
@@ -105,8 +117,7 @@ async function openTabsInBatches(urls, start = 0) {
         // Filter batch: skip PDFs and images
         const batch = [];
         for (const url of batchRaw) {
-            if (await shouldSkipUrl(url)) {
-                console.log('Skipping PDF/image:', url);
+            if (shouldSkipUrl(url)) {
                 continue;
             }
             batch.push(url);
@@ -154,13 +165,22 @@ async function openTabsInBatches(urls, start = 0) {
         // Yield control to keep UI responsive
         await new Promise(r => setTimeout(r, BATCH_DELAY_MS));
     }
-    // If we processed everything without being stopped/paused, mark complete
-    if (!processingState.stopped && !processingState.paused && current >= urls.length) {
-        updateCountdown(0);
-    }
-    // In all cases (stopped early or completed), update lastProcessedIndex
-    lastProcessedIndex = stats.tabsProcessed;
-    browser.runtime.sendMessage({ type: 'updateStartIndex', startIndex: lastProcessedIndex });
+        // If we processed everything without being stopped/paused, mark complete
+        if (!processingState.stopped && !processingState.paused && current >= urls.length) {
+                updateCountdown(0);
+        }
+        // Stop elapsed time timer
+        if (elapsedTimer) {
+                clearInterval(elapsedTimer);
+                elapsedTimer = null;
+        }
+        // In all cases (stopped early or completed), update lastProcessedIndex
+        lastProcessedIndex = stats.tabsProcessed;
+        browser.runtime.sendMessage({ type: 'updateStartIndex', startIndex: lastProcessedIndex })
+            .catch(e => {
+                if (e && e.message && e.message.includes('Could not establish connection')) return;
+                console.warn('sendMessage error:', e);
+            });
 }
 
 function resumeProcessing() {
@@ -174,6 +194,11 @@ function stopProcessing() {
     // Signal processing to stop; current batch will finish,
     // and openTabsInBatches will update lastProcessedIndex when done.
     processingState.stopped = true;
+    // Stop elapsed time timer
+    if (elapsedTimer) {
+        clearInterval(elapsedTimer);
+        elapsedTimer = null;
+    }
 }
 
 browser.runtime.onMessage.addListener((message, sender, sendResponse) => {

@@ -7,7 +7,7 @@ function updateCountdownText(processed, total) {
 function updateStats(stats) {
   document.getElementById('stats').innerHTML =
     `<div><strong>Tabs/sec:</strong> ${stats.tabsPerSec.toFixed(2)}</div>
-     <div><strong>Remaining time:</strong> ${stats.remainingTime}</div>
+     <div><strong>Elapsed Time:</strong> ${stats.elapsedTime}</div>
      <div><strong>ETA:</strong> ${stats.eta}</div>`;
 }
 
