@@ -1,5 +1,5 @@
 # makepackage.ps1
-# Packages all necessary Firefox extension files into favicon-refresher.zip
+# Packages all necessary Firefox extension files into bookmark-bar-auditor.zip
 
 
 $files = @(
@@ -11,5 +11,5 @@ $files = @(
     "popup.js"
 )
 
-Compress-Archive -Path $files -DestinationPath favicon-refresher.zip -Force
-Write-Host "Packaged favicon-refresher.zip with: $($files -join ', ')"
+Compress-Archive -Path $files -DestinationPath bookmark-bar-auditor.zip -Force
+Write-Host "Packaged bookmark-bar-auditor.zip with: $($files -join ', ')"
