@@ -6,10 +6,10 @@ Walk through the Firefox bookmark bar bookmarks refreshing the icons and checkin
 
 - Processes all bookmarks in the Firefox bookmark bar, opening each in a background tab.
 - Refreshes bookmark favicons/icons by loading each URL.
-- Skips bookmarks that are PDFs or images (using Content-Type detection).
+- Skips bookmarks that are PDFs by URL pattern (no network request, fast; images are not skipped).
 - Allows you to start processing at any bookmark index (resume or partial runs).
 - Lets you set the maximum number of tabs to open at once.
-- Provides real-time stats: tabs processed, tabs/sec, estimated time remaining, and ETA.
+- Provides real-time stats: tabs processed, tabs/sec, elapsed time (HH:MM:SS, live updating), and ETA.
 - Lets you stop processing at any time; the current index is saved for easy resumption.
 - Includes a reset button to quickly set the start index to zero.
 - Handles CORS errors gracefully when checking Content-Type.
@@ -33,7 +33,7 @@ Walk through the Firefox bookmark bar bookmarks refreshing the icons and checkin
 	- The extension will begin opening bookmarks in background tabs, skipping PDFs and images.
 
 5. **Monitor Progress:**  
-	- The popup displays the number of tabs processed, total bookmarks, processing speed, estimated time remaining, and ETA.
+	- The popup displays the number of tabs processed, total bookmarks, processing speed, elapsed time (HH:MM:SS, live updating), and ETA.
 
 6. **Stop Processing:**  
 	- Click the **Stop** button to pause processing at any time.
